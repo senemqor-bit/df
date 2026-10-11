@@ -116,6 +116,10 @@
   progress { width: 100%; height: 8px; accent-color: var(--sprint); }
   .confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; }
 
+  .standalone-note { margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--rec); display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+  .standalone-note p { margin: 0; }
+  .standalone-note .small { color: var(--muted); font-size: 13px; }
+  .standalone-note .btn { align-self: flex-start; text-decoration: none; }
   [hidden] { display: none !important; }
 </style>
 
@@ -130,6 +134,11 @@
     <div style="margin-top:12px">
       <button type="button" class="go" id="go">타이머 띄우기</button>
       <p class="status" id="status" role="status"></p>
+      <div class="standalone-note" id="standalone-note" hidden>
+        <p>지금은 홈 화면 앱 모드로 열려 있습니다. 이 모드에서는 아이폰이 작은 창(PiP)을 막습니다. Safari에서 열어 주세요.</p>
+        <a class="btn" id="open-safari" href="x-safari-https://senemqor-bit.github.io/df/docs/">Safari에서 열기</a>
+        <p class="small">홈 화면 아이콘을 다시 만들 때는 공유 → 홈 화면에 추가 화면에서 <b>웹 앱으로 열기</b>를 끄면, 아이콘이 Safari로 열립니다.</p>
+      </div>
     </div>
   </section>
 
@@ -329,7 +338,15 @@
     } catch (e) { /* 아래 안내 */ }
     return false;
   }
+  // 홈 화면 '웹 앱'으로 열린 경우 (Safari 주소창 없음): 아이폰이 이 모드에서는 PiP를 허용하지 않음
+  var standalone = window.navigator.standalone === true ||
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  if (standalone && window.top === window) $('standalone-note').hidden = false;
   function pipFail() {
+    if (standalone) {
+      say(statusEl, '홈 화면 앱 모드에서는 작은 창을 열 수 없습니다. 아래 Safari에서 열기를 눌러 주세요.', 'err');
+      return;
+    }
     say(statusEl, '이 화면에서는 작은 창을 바로 열 수 없습니다. 영상 왼쪽 위의 전체화면 버튼을 누른 뒤, 전체화면 플레이어의 작은 창(PiP) 버튼을 눌러 주세요.', 'err');
   }
   v.addEventListener('enterpictureinpicture', function () { say(statusEl, PIP_OK); });
