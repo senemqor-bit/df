@@ -34,6 +34,21 @@
     cursor: pointer;
   }
   .go:active { filter: brightness(0.92); }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .row .go { flex: 1 1 auto; }
+  .snd {
+    font: 600 14px/1.2 var(--font-body);
+    color: var(--fg);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 0 14px;
+    align-self: stretch;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .snd[aria-pressed="false"] { color: var(--muted); }
+  .snd:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
   .go:focus-visible, .phase:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
   .status { margin: 0; min-height: 1.5em; font-size: 14px; color: var(--muted); }
   .status.err { color: var(--rec); }
@@ -76,7 +91,10 @@
   <video id="v" src="interval-ride-pip.mp4" muted playsinline webkit-playsinline preload="auto" controls></video>
 
   <div>
-    <button type="button" class="go" id="go">타이머 띄우기</button>
+    <div class="row">
+      <button type="button" class="go" id="go">타이머 띄우기</button>
+      <button type="button" class="snd" id="snd" aria-pressed="true">소리 켜짐</button>
+    </div>
     <p class="status" id="status" role="status"></p>
   </div>
 
@@ -88,7 +106,7 @@
       <li>홈 화면으로 나가 YouTube 앱에서 원하는 영상을 봅니다. 타이머는 위에 그대로 떠 있습니다.</li>
       <li>작은 창을 한 번 누르면 일시정지·재생 버튼이 나옵니다. 화면 옆으로 밀면 잠시 숨겨 둘 수 있습니다.</li>
     </ol>
-    <p class="note">구간이 바뀌기 3초 전부터 화면이 깜빡이고, 바뀌는 순간 2초간 색이 강조됩니다. YouTube 소리를 방해하지 않도록 타이머에는 소리가 없습니다.</p>
+    <p class="note">구간이 바뀌기 3초 전부터 1초마다 짧은 '삑' 소리와 함께 화면이 깜빡이고, 바뀌는 순간 긴 '삐-' 소리가 납니다. SPRINT가 시작될 때는 두 음으로 더 높게 울립니다. 소리가 YouTube 재생을 멈추게 하면 소리를 끄고 다시 띄워 주세요.</p>
   </section>
 
   <section>
@@ -114,6 +132,20 @@
   var go = document.getElementById('go');
   var statusEl = document.getElementById('status');
   var list = document.getElementById('phases');
+  var snd = document.getElementById('snd');
+  var soundOn = true;
+  try { soundOn = localStorage.getItem('intervalRide.sound') !== 'off'; } catch (e) { /* 기본값 사용 */ }
+  function renderSound() {
+    snd.setAttribute('aria-pressed', String(soundOn));
+    snd.textContent = soundOn ? '소리 켜짐' : '소리 꺼짐';
+  }
+  renderSound();
+  snd.addEventListener('click', function () {
+    soundOn = !soundOn;
+    v.muted = !soundOn;
+    try { localStorage.setItem('intervalRide.sound', soundOn ? 'on' : 'off'); } catch (e) { /* 무시 */ }
+    renderSound();
+  });
 
   function say(msg, isErr) {
     statusEl.textContent = msg;
@@ -159,7 +191,7 @@
   }
 
   go.addEventListener('click', function () {
-    v.muted = true;
+    v.muted = !soundOn;
     var playing = v.play();
     if (playing && playing.catch) playing.catch(function () {});
     try {
