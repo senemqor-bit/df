@@ -299,14 +299,27 @@
 
   // ---------- 작은 창(PiP) ----------
   var PIP_OK = '작은 창으로 띄웠습니다. 위쪽으로 옮긴 뒤 YouTube를 여세요.';
+  function inPip() {
+    return v.webkitPresentationMode === 'picture-in-picture' || document.pictureInPictureElement === v;
+  }
   go.addEventListener('click', function () {
     v.muted = true;
     var playing = v.play();
     if (playing && playing.catch) playing.catch(function () {});
     try {
       if (typeof v.webkitSupportsPresentationMode === 'function' && v.webkitSupportsPresentationMode('picture-in-picture')) {
+        if (v.readyState < 1) {
+          // 영상 정보를 아직 못 받았으면 아이폰이 작은 창 요청을 무시함 → 받는 즉시 다시 시도
+          say(statusEl, '타이머를 불러오는 중입니다. 작은 창이 뜨지 않으면 버튼을 한 번 더 눌러 주세요.');
+          v.addEventListener('loadedmetadata', function () {
+            try { v.webkitSetPresentationMode('picture-in-picture'); } catch (e) { /* 다시 누르도록 안내됨 */ }
+          }, { once: true });
+          return;
+        }
         v.webkitSetPresentationMode('picture-in-picture');
-        say(statusEl, PIP_OK);
+        setTimeout(function () {
+          if (!inPip()) say(statusEl, '작은 창이 뜨지 않았습니다. 버튼을 한 번 더 눌러 주세요.', 'err');
+        }, 1500);
         return;
       }
       if (document.pictureInPictureEnabled && typeof v.requestPictureInPicture === 'function') {
@@ -332,6 +345,9 @@
     say(statusEl, '이 화면에서는 작은 창을 바로 열 수 없습니다. 영상 왼쪽 위의 전체화면 버튼을 누른 뒤, 전체화면 플레이어의 작은 창(PiP) 버튼을 눌러 주세요.', 'err');
   }
   v.addEventListener('enterpictureinpicture', function () { say(statusEl, PIP_OK); });
+  v.addEventListener('webkitpresentationmodechanged', function () {
+    if (v.webkitPresentationMode === 'picture-in-picture') say(statusEl, PIP_OK, 'ok');
+  });
   v.addEventListener('error', function () {
     if (v.getAttribute('src')) say(statusEl, '타이머 영상을 불러오지 못했습니다. 새로고침해 주세요.', 'err');
   });
@@ -452,13 +468,33 @@
 
   // ---------- 타이머 영상 만들기 (기기 안에서 바로 인코딩) ----------
   var blobUrl = null;
+  var DEFAULT_SRC = 'interval-ride-pip.mp4';
+  var defaultBlobUrl = null;
   function activate(p, url) {
     active = clone(p);
     if (blobUrl && blobUrl !== url) URL.revokeObjectURL(blobUrl);
     blobUrl = url;
-    v.src = url || 'interval-ride-pip.mp4';
+    v.src = url || defaultBlobUrl || DEFAULT_SRC;
     v.load();
     renderPhases();
+    if (!url && !defaultBlobUrl) preloadDefault();
+  }
+  // 기본 영상을 미리 통째로 받아 둠: 아이폰 Safari는 네트워크 영상의 정보를 미리 받지 않아 첫 터치에 작은 창이 안 뜰 수 있음
+  var preloading = false;
+  function preloadDefault() {
+    if (preloading || defaultBlobUrl || typeof fetch !== 'function') return;
+    preloading = true;
+    fetch(DEFAULT_SRC).then(function (r) {
+      if (!r.ok) throw new Error('fetch');
+      return r.blob();
+    }).then(function (b) {
+      defaultBlobUrl = URL.createObjectURL(new Blob([b], { type: 'video/mp4' }));
+      if (blobUrl || !isDefault(active) || inPip() || !v.paused) return; // 사용자 구성 사용 중이거나 이미 재생 중
+      var t = v.currentTime;
+      v.src = defaultBlobUrl;
+      v.load();
+      if (t) v.addEventListener('loadedmetadata', function () { v.currentTime = t; }, { once: true });
+    }).catch(function () { preloading = false; });
   }
 
   function frameState(p, st, total, t) {
@@ -676,6 +712,7 @@
   renderEditor();
   renderPhases();
   var localProgram = isDefault(active) ? null : clone(active);
+  if (!localProgram) { v.load(); preloadDefault(); }
   if (localProgram) buildSaved(localProgram);
   loadRemote().then(function (p) {
     if (p === undefined) {
