@@ -210,7 +210,7 @@
           <button type="button" class="btn" id="reset">기본값 설정</button>
         </div>
         <div class="confirm" id="reset-confirm" hidden>
-          <span>원본 영상 구성(30분, 15구간)으로 되돌릴까요?</span>
+          <span>기본 구성(30분, 17구간)으로 되돌릴까요?</span>
           <button type="button" class="btn" id="reset-yes">되돌리기</button>
           <button type="button" class="btn" id="reset-no">취소</button>
         </div>
@@ -225,11 +225,12 @@
 (function () {
   'use strict';
 
-  // ---------- 기본 구성 (원본 영상과 동일, 총 30분) ----------
+  // ---------- 기본 구성 (원본 영상 기반, 마지막 쿨다운 일부를 회복·스프린트로 바꾼 구성, 총 30분) ----------
   var DEFAULT = [
     ['warmup', 300], ['sprint', 60], ['recovery', 60], ['sprint', 120], ['recovery', 60],
     ['sprint', 60], ['recovery', 60], ['sprint', 120], ['recovery', 60], ['sprint', 180],
-    ['recovery', 120], ['sprint', 120], ['recovery', 60], ['sprint', 120], ['cooldown', 300]
+    ['recovery', 120], ['sprint', 120], ['recovery', 60], ['sprint', 120], ['recovery', 60],
+    ['sprint', 90], ['cooldown', 150]
   ];
   var LEAD = 5, TAIL = 10, FPS = 2;
   var KINDS = {
@@ -446,7 +447,7 @@
     renderEditor();
     activate(DEFAULT, null);
     saveProgram(null);
-    say($('b-status'), '기본값(원본 영상 구성)으로 되돌렸습니다.', 'ok');
+    say($('b-status'), '기본 구성(30분, 17구간)으로 되돌렸습니다.', 'ok');
   });
 
   // ---------- 타이머 영상 만들기 (기기 안에서 바로 인코딩) ----------
