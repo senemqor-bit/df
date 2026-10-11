@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Interval Ride 타이머",
+  "version": "1.0.0",
+  "description": "어떤 YouTube 영상을 보든, 30분 실내자전거 인터벌 타이머를 영상 왼쪽 위에 띄웁니다.",
+  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "action": {
+    "default_title": "인터벌 타이머 보이기/숨기기 (Alt+Shift+T)",
+    "default_icon": { "16": "icons/icon16.png", "48": "icons/icon48.png" }
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": { "default": "Alt+Shift+T" },
+      "description": "인터벌 타이머 보이기/숨기기"
+    }
+  },
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*", "https://m.youtube.com/*"],
+      "js": ["interval-core.js", "content.js"],
+      "css": ["overlay.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

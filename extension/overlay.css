@@ -1,0 +1,132 @@
+/* Interval Ride 오버레이. 모든 크기는 --u(영상 높이의 1%) 기준이라 원본 영상과 같은 비율로 보입니다. */
+.ir-root {
+  --u: 3.6px;
+  --c: #5f8dff;
+  --ink: #ffffff;
+  --disc: rgba(10, 12, 20, 0.74);
+  --btn: rgba(10, 12, 20, 0.62);
+  --btn-hover: rgba(40, 44, 60, 0.9);
+  all: initial;
+  position: absolute;
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(var(--u) * 1.2);
+  font-family: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--ink);
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  line-height: 1;
+}
+.ir-root[hidden] { display: none !important; }
+.ir-root[data-layout="fixed"] { position: fixed; top: 16px; left: 16px; }
+.ir-root[data-layout="fill"] { position: relative; align-items: center; }
+
+.ir-root[data-kind="warmup"],
+.ir-root[data-kind="cooldown"] { --c: #5f8dff; }
+.ir-root[data-kind="sprint"] { --c: #ff3d57; }
+.ir-root[data-kind="recovery"] { --c: #ffd84a; }
+.ir-root[data-kind="done"] { --c: #4fe3a1; }
+
+.ir-root * { box-sizing: border-box; }
+
+.ir-badge {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 2);
+}
+
+.ir-root button {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+}
+.ir-root button:focus-visible { outline: 2px solid #ffffff; outline-offset: 2px; }
+
+.ir-root .ir-dial {
+  position: relative;
+  width: calc(var(--u) * 19);
+  height: calc(var(--u) * 19);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+.ir-ring { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.ir-disc { fill: var(--disc); }
+.ir-track { fill: none; stroke: rgba(255, 255, 255, 0.16); stroke-width: 6; }
+.ir-arc {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 7;
+  transition: stroke-dasharray 0.25s linear, stroke 0.3s;
+}
+.ir-time {
+  position: relative;
+  font-size: calc(var(--u) * 5.3);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+.ir-root.is-final .ir-time { color: var(--c); animation: ir-pulse 1s steps(2, jump-none) infinite; }
+.ir-root:not(.is-running):not([data-kind="done"]) .ir-time { opacity: 0.75; }
+
+.ir-text {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 1);
+  white-space: nowrap;
+}
+.ir-sub {
+  font-size: max(calc(var(--u) * 2.3), 10px);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75), 0 0 6px rgba(0, 0, 0, 0.5);
+}
+.ir-label {
+  font-size: calc(var(--u) * 6.2);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: var(--c);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55), 0 0 10px rgba(0, 0, 0, 0.35);
+  transition: color 0.3s;
+}
+
+.ir-controls {
+  display: flex;
+  gap: max(calc(var(--u) * 0.9), 4px);
+  transition: opacity 0.2s;
+}
+.ir-root[data-layout="video"].is-running .ir-controls,
+.ir-root[data-layout="fixed"].is-running .ir-controls { opacity: 0; }
+.ir-root[data-layout="video"].is-running:hover .ir-controls,
+.ir-root[data-layout="fixed"].is-running:hover .ir-controls,
+.ir-root.is-running:focus-within .ir-controls { opacity: 1; }
+
+.ir-controls button {
+  width: max(calc(var(--u) * 4.8), 28px);
+  height: max(calc(var(--u) * 4.8), 28px);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--btn);
+  color: var(--ink);
+  transition: background 0.15s;
+}
+.ir-controls button:hover { background: var(--btn-hover); }
+.ir-controls svg { width: 58%; height: 58%; fill: currentColor; display: block; }
+.ir-controls .ir-play { background: var(--c); color: #111; }
+.ir-controls .ir-play:hover { background: var(--c); filter: brightness(1.12); }
+
+@keyframes ir-pulse { 50% { opacity: 0.45; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ir-arc, .ir-label, .ir-controls { transition: none; }
+  .ir-root.is-final .ir-time { animation: none; }
+}
