@@ -421,7 +421,7 @@
     renderQuick();
     renderEditor();
     activate(DEFAULT, null);
-    try { localStorage.removeItem(STORE); } catch (e) { /* 무시 */ }
+    saveProgram(null);
     say($('b-status'), '기본값(원본 영상 구성)으로 되돌렸습니다.', 'ok');
   });
 
@@ -560,7 +560,7 @@
     }
     var p = clone(draft);
     if (isDefault(p)) {
-      try { localStorage.removeItem(STORE); } catch (e) { /* 무시 */ }
+      saveProgram(null);
       activate(DEFAULT, null);
       say(bs, '기본 구성을 사용합니다. 위로 올라가 타이머 띄우기를 누르세요.', 'ok');
       return;
@@ -572,7 +572,7 @@
     say(bs, '타이머를 만드는 중입니다. 잠시만 기다려 주세요.');
     encode(p, function (r) { prog.value = r; }).then(function (blob) {
       activate(p, URL.createObjectURL(blob));
-      try { localStorage.setItem(STORE, JSON.stringify(p)); } catch (e) { /* 무시 */ }
+      saveProgram(p);
       say(bs, '완성했습니다 (총 ' + mmss(totalOf(p)) + '). 위로 올라가 타이머 띄우기를 누르세요.', 'ok');
     }, function (err) {
       say(bs, err && err.message === 'unsupported'
@@ -584,25 +584,93 @@
       building = false;
       $('build').disabled = go.disabled = false;
       prog.hidden = true;
+      afterBuild();
     });
   });
+
+  // ---------- 설정 저장 ----------
+  // 브라우저 저장소는 앱을 닫으면 지워질 수 있어서, 계정별 비공개 저장소(db)에도 함께 저장하고 열 때 그쪽을 우선함
+  var remoteRef = null;
+  var remoteReady = (window.claude && typeof window.claude.use === 'function')
+    ? Promise.all([window.claude.use('db'), window.claude.use('user')]).then(function (r) {
+        var db = r[0], user = r[1];
+        if (!db || !user) return null;
+        return user.id().then(function (id) {
+          remoteRef = id ? db.doc('data/users/' + id + '/program') : null;
+          return remoteRef;
+        });
+      }).catch(function () { return null; })
+    : Promise.resolve(null);
+
+  function saveProgram(p) {
+    try {
+      if (p) localStorage.setItem(STORE, JSON.stringify(p));
+      else localStorage.removeItem(STORE);
+    } catch (e) { /* 무시 */ }
+    remoteReady.then(function (ref) {
+      if (ref) return ref.set({ program: p ? JSON.stringify(p) : '', savedAt: Date.now() });
+    }).catch(function () { /* 브라우저 저장소에는 남아 있음 */ });
+  }
+
+  function loadRemote() {
+    return remoteReady.then(function (ref) {
+      if (!ref) return undefined;
+      return ref.get().then(function (snap) {
+        if (!snap.exists) return undefined;
+        var raw = (snap.data() || {}).program;
+        if (!raw) return null; // 기본값으로 저장된 상태
+        var p = JSON.parse(raw);
+        return valid(p) ? p : undefined;
+      });
+    }).catch(function () { return undefined; });
+  }
+
+  // 저장된 사용자 구성은 페이지를 열 때마다 타이머 영상을 다시 만듦
+  var pending = null;
+  function buildSaved(p) {
+    if (building) { pending = p; return; }
+    draft = clone(p);
+    renderEditor();
+    say(statusEl, '저장된 사용자 구성(' + mmss(totalOf(p)) + ')으로 타이머를 준비하는 중입니다.');
+    v.removeAttribute('src');
+    booting = true;
+    $('build').click();
+  }
+  var booting = false;
+  function afterBuild() {
+    if (booting) {
+      booting = false;
+      if (blobUrl) say(statusEl, '사용자 구성(' + mmss(totalOf(active)) + ')이 준비되었습니다.', 'ok');
+      else { activate(DEFAULT, null); say(statusEl, '사용자 구성을 만들지 못해 기본 구성을 불러왔습니다. 아래 저장하고 타이머 만들기를 다시 눌러 주세요.', 'err'); }
+    }
+    if (pending) { var p = pending; pending = null; buildSaved(p); }
+  }
 
   // ---------- 시작 ----------
   renderQuick();
   renderEditor();
   renderPhases();
-  if (!isDefault(active)) {
-    // 저장된 사용자 구성은 페이지를 열 때마다 다시 만듦
-    say(statusEl, '저장된 사용자 구성으로 타이머를 준비하는 중입니다.');
-    v.removeAttribute('src');
-    $('build').click();
-    var waitBuilt = setInterval(function () {
-      if (!building) {
-        clearInterval(waitBuilt);
-        if (blobUrl) say(statusEl, '사용자 구성(' + mmss(totalOf(active)) + ')이 준비되었습니다.', 'ok');
-        else { activate(DEFAULT, null); say(statusEl, '사용자 구성을 만들지 못해 기본 구성을 불러왔습니다.', 'err'); }
-      }
-    }, 300);
-  }
+  var localProgram = isDefault(active) ? null : clone(active);
+  if (localProgram) buildSaved(localProgram);
+  loadRemote().then(function (p) {
+    if (p === undefined) {
+      // 계정 저장소에 아직 없으면 이 기기의 설정을 올려 둠
+      if (localProgram) saveProgram(localProgram);
+      return;
+    }
+    if (JSON.stringify(p) === JSON.stringify(localProgram)) return;
+    try {
+      if (p) localStorage.setItem(STORE, JSON.stringify(p));
+      else localStorage.removeItem(STORE);
+    } catch (e) { /* 무시 */ }
+    if (p) buildSaved(p);
+    else if (localProgram) {
+      // 다른 곳에서 기본값으로 되돌린 경우
+      pending = null;
+      draft = clone(DEFAULT);
+      renderEditor();
+      if (!building) activate(DEFAULT, null);
+    }
+  });
 })();
 </script>
