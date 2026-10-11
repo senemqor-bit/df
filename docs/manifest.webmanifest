@@ -1,0 +1,12 @@
+{
+  "name": "Interval Ride",
+  "short_name": "인터벌",
+  "start_url": "./",
+  "display": "browser",
+  "background_color": "#0b0d14",
+  "theme_color": "#0b0d14",
+  "icons": [
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

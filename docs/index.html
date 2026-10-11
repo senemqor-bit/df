@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-title" content="인터벌">
+<meta name="theme-color" content="#0b0d14">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>html,body{margin:0}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Interval Ride</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600&family=Saira+Semi+Condensed:wght@600;800&display=swap">
+<style>
+  /* 휴대폰 한 화면: 타이머 미리보기 → 띄우기 → 사용법 → 시작 구간 → 타이머 설정. 실내 운동용이라 어두운 테마 하나로 고정 */
+  :root {
+    --bg: #0b0d14;
+    --panel: #141824;
+    --panel-2: #1b2030;
+    --line: #262b3b;
+    --line-2: #39415c;
+    --fg: #eef0f6;
+    --muted: #9aa1b5;
+    --warm: #5f8dff;
+    --sprint: #ff3d57;
+    --rec: #ffd84a;
+    --ok: #4fe3a1;
+    --font-display: "Saira Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+    --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+  .wrap { max-width: 560px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 48px; display: flex; flex-direction: column; gap: 26px; }
+  h1 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 24px; letter-spacing: 0.04em; text-transform: uppercase; }
+  h1 span { color: var(--sprint); }
+  .lead { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+  h2 { margin: 0 0 10px; font-family: var(--font-display); font-weight: 600; font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  h3 { margin: 0 0 8px; font-size: 14.5px; font-weight: 600; }
+  video { display: block; width: 100%; max-width: 100%; aspect-ratio: 3 / 1; background: #000; border-radius: 12px; border: 1px solid var(--line); }
+
+  button { font-family: var(--font-body); }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  .go {
+    font-weight: 700; font-size: 17px; line-height: 1;
+    color: #111; background: var(--sprint);
+    border: 0; border-radius: 14px; padding: 18px; width: 100%; cursor: pointer;
+  }
+  .go:active { filter: brightness(0.92); }
+  .go:disabled { background: var(--line-2); color: var(--muted); cursor: default; }
+  .btn {
+    font-weight: 600; font-size: 14px; line-height: 1.2;
+    color: var(--fg); background: var(--panel-2);
+    border: 1px solid var(--line-2); border-radius: 10px; padding: 11px 14px; cursor: pointer;
+  }
+  .btn.primary { background: var(--fg); color: #111; border-color: var(--fg); }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .status { margin: 8px 0 0; min-height: 1.5em; font-size: 14px; color: var(--muted); }
+  .status.err { color: var(--rec); }
+  .status.ok { color: var(--ok); }
+
+  ol.steps { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 6px; }
+  ol.steps li::marker { color: var(--muted); font-weight: 600; }
+  .note { margin: 10px 0 0; font-size: 13.5px; color: var(--muted); }
+
+  .phases { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .phase {
+    all: unset; box-sizing: border-box; width: 100%; cursor: pointer;
+    display: grid; grid-template-columns: 3.4em 1fr auto; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 9px;
+    background: var(--panel); border: 1px solid var(--line);
+    font-variant-numeric: tabular-nums;
+  }
+  .phase:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+  .phase .at { color: var(--muted); font-size: 13px; }
+  .phase .name { font-family: var(--font-display); font-weight: 800; letter-spacing: 0.05em; }
+  .phase .name small { font-family: var(--font-body); font-weight: 400; letter-spacing: 0; color: var(--muted); margin-left: 6px; font-size: 12.5px; }
+  .phase .dur { font-weight: 600; }
+  .is-now .phase { border-color: var(--fg); background: var(--panel-2); }
+  .k-warmup, .k-cooldown { color: var(--warm); }
+  .k-sprint { color: var(--sprint); }
+  .k-recovery { color: var(--rec); }
+
+  /* 설정 */
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
+  .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .field label { font-size: 13px; color: var(--muted); }
+  .unit { display: flex; align-items: center; gap: 6px; }
+  .unit span { color: var(--muted); font-size: 13px; }
+  input[type="number"], select {
+    font: 600 16px/1.2 var(--font-body);
+    color: var(--fg); background: var(--bg);
+    border: 1px solid var(--line-2); border-radius: 8px;
+    padding: 9px 10px; width: 100%; min-width: 0; box-sizing: border-box;
+    font-variant-numeric: tabular-nums;
+  }
+  .summary { margin: 0; font-size: 13.5px; color: var(--muted); }
+  .summary b { color: var(--fg); font-weight: 600; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .edit-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .edit-row {
+    display: grid;
+    grid-template-columns: 1.6em minmax(0, 1fr) auto;
+    grid-template-areas: "no kind tools" ". time time";
+    gap: 6px 8px;
+    align-items: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .edit-row:last-child { border-bottom: 0; padding-bottom: 0; }
+  .edit-row .no { grid-area: no; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .edit-row select { grid-area: kind; }
+  .edit-row .time { grid-area: time; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+  .edit-row .time span { color: var(--muted); font-size: 13px; }
+  .edit-row .tools { grid-area: tools; display: flex; gap: 4px; }
+  .icon-btn {
+    width: 34px; height: 34px; display: grid; place-items: center;
+    color: var(--fg); background: var(--panel-2);
+    border: 1px solid var(--line-2); border-radius: 8px; cursor: pointer; padding: 0;
+  }
+  .icon-btn svg { width: 16px; height: 16px; fill: currentColor; }
+  .icon-btn:disabled { opacity: 0.35; cursor: default; }
+
+  progress { width: 100%; height: 8px; accent-color: var(--sprint); }
+  .confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; }
+
+  [hidden] { display: none !important; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Interval <span>Ride</span></h1>
+    <p class="lead">YouTube를 보는 동안 화면 위에 떠 있는 실내자전거 인터벌 타이머</p>
+  </header>
+
+  <section aria-label="타이머">
+    <video id="v" src="interval-ride-pip.mp4" muted playsinline webkit-playsinline preload="auto" controls></video>
+    <div style="margin-top:12px">
+      <button type="button" class="go" id="go">타이머 띄우기</button>
+      <p class="status" id="status" role="status"></p>
+    </div>
+  </section>
+
+  <section>
+    <h2>사용 방법</h2>
+    <ol class="steps">
+      <li><b>타이머 띄우기</b>를 누르면 타이머가 작은 창으로 분리됩니다. 5초 준비 후 첫 구간이 시작됩니다.</li>
+      <li>작은 창을 손가락으로 끌어 화면 위쪽에 놓습니다.</li>
+      <li>홈 화면으로 나가 YouTube 앱에서 원하는 영상을 봅니다.</li>
+      <li>작은 창을 한 번 누르면 일시정지·재생 버튼이 나옵니다.</li>
+    </ol>
+    <p class="note">구간이 바뀌기 3초 전부터 화면이 깜빡이고, 바뀌는 순간 2초간 색이 강조됩니다.</p>
+  </section>
+
+  <section>
+    <h2 id="phases-h">시작 구간 선택</h2>
+    <ol class="phases" id="phases" aria-labelledby="phases-h"></ol>
+  </section>
+
+  <section>
+    <h2>타이머 설정</h2>
+    <div style="display:flex;flex-direction:column;gap:14px">
+
+      <div class="card">
+        <h3>간단 설정</h3>
+        <div class="grid">
+          <div class="field">
+            <label for="q-warm">워밍업</label>
+            <div class="unit"><input type="number" id="q-warm" min="0" max="30" step="1" inputmode="numeric" value="5"><span>분</span></div>
+          </div>
+          <div class="field">
+            <label for="q-cool">쿨다운</label>
+            <div class="unit"><input type="number" id="q-cool" min="0" max="30" step="1" inputmode="numeric" value="5"><span>분</span></div>
+          </div>
+          <div class="field">
+            <label for="q-sprint">스프린트 1회</label>
+            <div class="unit"><input type="number" id="q-sprint" min="5" max="600" step="5" inputmode="numeric" value="60"><span>초</span></div>
+          </div>
+          <div class="field">
+            <label for="q-rec">회복 1회</label>
+            <div class="unit"><input type="number" id="q-rec" min="5" max="600" step="5" inputmode="numeric" value="60"><span>초</span></div>
+          </div>
+          <div class="field">
+            <label for="q-total">전체 운동 시간</label>
+            <div class="unit"><input type="number" id="q-total" min="5" max="120" step="1" inputmode="numeric" value="30"><span>분</span></div>
+          </div>
+        </div>
+        <p class="summary" id="q-summary"></p>
+        <div class="actions">
+          <button type="button" class="btn" id="q-apply">이 값으로 구간 만들기</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>구간 상세 편집</h3>
+        <ol class="edit-list" id="edit-list"></ol>
+        <div class="actions">
+          <button type="button" class="btn" id="add">구간 추가</button>
+        </div>
+        <p class="summary" id="e-summary"></p>
+      </div>
+
+      <div class="card">
+        <div class="actions">
+          <button type="button" class="btn primary" id="build">저장하고 타이머 만들기</button>
+          <button type="button" class="btn" id="reset">기본값 설정</button>
+        </div>
+        <div class="confirm" id="reset-confirm" hidden>
+          <span>원본 영상 구성(30분, 15구간)으로 되돌릴까요?</span>
+          <button type="button" class="btn" id="reset-yes">되돌리기</button>
+          <button type="button" class="btn" id="reset-no">취소</button>
+        </div>
+        <progress id="prog" max="1" value="0" hidden></progress>
+        <p class="status" id="b-status" role="status"></p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- 기본 구성 (원본 영상과 동일, 총 30분) ----------
+  var DEFAULT = [
+    ['warmup', 300], ['sprint', 60], ['recovery', 60], ['sprint', 120], ['recovery', 60],
+    ['sprint', 60], ['recovery', 60], ['sprint', 120], ['recovery', 60], ['sprint', 180],
+    ['recovery', 120], ['sprint', 120], ['recovery', 60], ['sprint', 120], ['cooldown', 300]
+  ];
+  var LEAD = 5, TAIL = 10, FPS = 2;
+  var KINDS = {
+    warmup: { label: 'WARM UP', ko: '워밍업', color: '#5f8dff' },
+    sprint: { label: 'SPRINT', ko: '스프린트', color: '#ff3d57' },
+    recovery: { label: 'RECOVERY', ko: '회복', color: '#ffd84a' },
+    cooldown: { label: 'COOL DOWN', ko: '쿨다운', color: '#5f8dff' }
+  };
+  var STORE = 'intervalRide.program';
+  var MAX_TOTAL = 120 * 60;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var v = $('v'), go = $('go'), statusEl = $('status'), list = $('phases');
+
+  function say(el, msg, kind) { el.textContent = msg; el.className = 'status' + (kind ? ' ' + kind : ''); }
+  function mmss(s) { return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+  function totalOf(p) { return p.reduce(function (a, x) { return a + x[1]; }, 0); }
+  function isDefault(p) { return JSON.stringify(p) === JSON.stringify(DEFAULT); }
+  function startsOf(p) { var s = [], a = 0; p.forEach(function (x) { s.push(a); a += x[1]; }); return s; }
+  function clone(p) { return p.map(function (x) { return [x[0], x[1]]; }); }
+
+  function valid(p) {
+    if (!Array.isArray(p) || !p.length) return false;
+    return p.every(function (x) { return KINDS[x[0]] && x[1] >= 1 && x[1] <= 3600; }) && totalOf(p) <= MAX_TOTAL;
+  }
+
+  // 저장된 구성 (타이머로 쓰이는 것) 과 편집 중인 구성
+  var active = DEFAULT;
+  try {
+    var saved = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if (valid(saved)) active = saved;
+  } catch (e) { /* 기본값 사용 */ }
+  var draft = clone(active);
+
+  // ---------- 시작 구간 목록 ----------
+  var rows = [];
+  function renderPhases() {
+    list.innerHTML = '';
+    var st = startsOf(active);
+    rows = active.map(function (p, i) {
+      var li = document.createElement('li');
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'phase';
+      b.innerHTML = '<span class="at">' + mmss(st[i]) + '</span>' +
+        '<span class="name k-' + p[0] + '">' + KINDS[p[0]].label + '<small>' + KINDS[p[0]].ko + '</small></span>' +
+        '<span class="dur">' + mmss(p[1]) + '</span>';
+      b.addEventListener('click', function () {
+        if (!v.src) return;
+        v.currentTime = i === 0 ? 0 : LEAD + st[i];
+        say(statusEl, KINDS[p[0]].label + ' (' + mmss(st[i]) + ')부터 시작하도록 맞췄습니다. 타이머 띄우기를 누르세요.');
+        highlight();
+      });
+      li.appendChild(b);
+      list.appendChild(li);
+      return li;
+    });
+    highlight();
+  }
+  function highlight() {
+    var st = startsOf(active), e = v.currentTime - LEAD, idx = 0;
+    for (var i = 0; i < st.length; i++) if (st[i] <= e) idx = i;
+    rows.forEach(function (li, i) { li.classList.toggle('is-now', i === idx); });
+  }
+  v.addEventListener('timeupdate', highlight);
+
+  // ---------- 작은 창(PiP) ----------
+  var PIP_OK = '작은 창으로 띄웠습니다. 위쪽으로 옮긴 뒤 YouTube를 여세요.';
+  go.addEventListener('click', function () {
+    v.muted = true;
+    var playing = v.play();
+    if (playing && playing.catch) playing.catch(function () {});
+    try {
+      if (typeof v.webkitSupportsPresentationMode === 'function' && v.webkitSupportsPresentationMode('picture-in-picture')) {
+        v.webkitSetPresentationMode('picture-in-picture');
+        say(statusEl, PIP_OK);
+        return;
+      }
+      if (document.pictureInPictureEnabled && typeof v.requestPictureInPicture === 'function') {
+        v.requestPictureInPicture().then(function () { say(statusEl, PIP_OK); }, pipFail);
+        return;
+      }
+    } catch (e) { /* 아래 안내 */ }
+    // Safari에서 페이지가 claude.ai 안에 들어가 있으면 작은 창을 바로 열 수 없음 → 전체화면 플레이어로 열고 그 안의 PiP 버튼을 쓰게 함
+    if (openFullscreen()) {
+      say(statusEl, '전체화면 플레이어가 열렸습니다. 왼쪽 위의 작은 창(PiP) 버튼을 누르면 타이머가 작은 창으로 떠 있습니다.');
+      return;
+    }
+    pipFail();
+  });
+  function openFullscreen() {
+    try {
+      if (typeof v.webkitEnterFullscreen === 'function') { v.webkitEnterFullscreen(); return true; }
+      if (typeof v.requestFullscreen === 'function') { v.requestFullscreen().catch(function () {}); return true; }
+    } catch (e) { /* 아래 안내 */ }
+    return false;
+  }
+  function pipFail() {
+    say(statusEl, '이 화면에서는 작은 창을 바로 열 수 없습니다. 영상 왼쪽 위의 전체화면 버튼을 누른 뒤, 전체화면 플레이어의 작은 창(PiP) 버튼을 눌러 주세요.', 'err');
+  }
+  v.addEventListener('enterpictureinpicture', function () { say(statusEl, PIP_OK); });
+  v.addEventListener('error', function () {
+    if (v.getAttribute('src')) say(statusEl, '타이머 영상을 불러오지 못했습니다. 새로고침해 주세요.', 'err');
+  });
+
+  // ---------- 간단 설정 ----------
+  var qIds = ['q-warm', 'q-cool', 'q-sprint', 'q-rec', 'q-total'];
+  function num(id) { var n = parseInt($(id).value, 10); return isFinite(n) ? n : 0; }
+  function quickProgram() {
+    var warm = Math.max(0, num('q-warm')) * 60, cool = Math.max(0, num('q-cool')) * 60;
+    var sp = Math.max(5, num('q-sprint')), rc = Math.max(5, num('q-rec'));
+    var total = Math.min(MAX_TOTAL, Math.max(1, num('q-total')) * 60);
+    var room = total - warm - cool;
+    var rounds = Math.floor((room + rc) / (sp + rc)); // 마지막 스프린트 뒤 회복은 생략 가능
+    if (rounds < 1) return { error: '전체 운동 시간이 워밍업과 쿨다운을 더한 시간보다 길어야 합니다.' };
+    var p = [];
+    if (warm) p.push(['warmup', warm]);
+    for (var i = 0; i < rounds; i++) {
+      p.push(['sprint', sp]);
+      if (i < rounds - 1) p.push(['recovery', rc]);
+    }
+    var used = totalOf(p) + cool;
+    var extra = total - used; // 남는 시간은 쿨다운에 더해 전체 시간을 정확히 맞춤
+    if (cool + extra > 0) p.push(['cooldown', cool + extra]);
+    return { program: p, rounds: rounds, extra: extra };
+  }
+  function renderQuick() {
+    var r = quickProgram();
+    var el = $('q-summary');
+    if (r.error) { el.textContent = r.error; return; }
+    el.innerHTML = '스프린트 <b>' + r.rounds + '회</b> · 총 <b>' + mmss(totalOf(r.program)) + '</b>' +
+      (r.extra > 0 ? ' · 남는 ' + mmss(r.extra) + '는 쿨다운에 더합니다' : '');
+  }
+  qIds.forEach(function (id) { $(id).addEventListener('input', renderQuick); });
+  $('q-apply').addEventListener('click', function () {
+    var r = quickProgram();
+    if (r.error) { say($('b-status'), r.error, 'err'); return; }
+    draft = r.program;
+    renderEditor();
+    say($('b-status'), '구간 상세 편집에 반영했습니다. 확인 후 저장하고 타이머 만들기를 누르세요.');
+  });
+
+  // ---------- 상세 편집 ----------
+  var ICON = {
+    up: '<svg viewBox="0 0 24 24"><path d="M12 6l7 8h-14z"/></svg>',
+    down: '<svg viewBox="0 0 24 24"><path d="M12 18l-7-8h14z"/></svg>',
+    del: '<svg viewBox="0 0 24 24"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6l5.6-5.6L5 6.4z"/></svg>'
+  };
+  var editList = $('edit-list');
+  function renderEditor() {
+    editList.innerHTML = '';
+    draft.forEach(function (p, i) {
+      var li = document.createElement('li');
+      li.className = 'edit-row';
+      var opts = Object.keys(KINDS).map(function (k) {
+        return '<option value="' + k + '"' + (k === p[0] ? ' selected' : '') + '>' + KINDS[k].ko + '</option>';
+      }).join('');
+      li.innerHTML =
+        '<span class="no">' + (i + 1) + '</span>' +
+        '<select id="e-kind-' + i + '" aria-label="' + (i + 1) + '번 구간 종류">' + opts + '</select>' +
+        '<span class="time">' +
+          '<input type="number" id="e-min-' + i + '" min="0" max="60" inputmode="numeric" value="' + Math.floor(p[1] / 60) + '" aria-label="' + (i + 1) + '번 구간 분"><span>분</span>' +
+          '<input type="number" id="e-sec-' + i + '" min="0" max="59" inputmode="numeric" value="' + (p[1] % 60) + '" aria-label="' + (i + 1) + '번 구간 초"><span>초</span>' +
+        '</span>' +
+        '<span class="tools">' +
+          '<button type="button" class="icon-btn" data-act="up" aria-label="위로"' + (i === 0 ? ' disabled' : '') + '>' + ICON.up + '</button>' +
+          '<button type="button" class="icon-btn" data-act="down" aria-label="아래로"' + (i === draft.length - 1 ? ' disabled' : '') + '>' + ICON.down + '</button>' +
+          '<button type="button" class="icon-btn" data-act="del" aria-label="삭제"' + (draft.length === 1 ? ' disabled' : '') + '>' + ICON.del + '</button>' +
+        '</span>';
+      li.querySelector('select').addEventListener('change', function (ev) { draft[i][0] = ev.target.value; renderEditSummary(); });
+      li.querySelectorAll('input').forEach(function (inp) {
+        inp.addEventListener('input', function () {
+          var m = Math.max(0, parseInt(li.querySelector('#e-min-' + i).value, 10) || 0);
+          var s = Math.max(0, parseInt(li.querySelector('#e-sec-' + i).value, 10) || 0);
+          draft[i][1] = m * 60 + s;
+          renderEditSummary();
+        });
+      });
+      li.querySelector('.tools').addEventListener('click', function (ev) {
+        var b = ev.target.closest('button');
+        if (!b || b.disabled) return;
+        var act = b.dataset.act;
+        if (act === 'up') { var t = draft[i - 1]; draft[i - 1] = draft[i]; draft[i] = t; }
+        else if (act === 'down') { var u = draft[i + 1]; draft[i + 1] = draft[i]; draft[i] = u; }
+        else if (act === 'del') draft.splice(i, 1);
+        renderEditor();
+      });
+      editList.appendChild(li);
+    });
+    renderEditSummary();
+  }
+  function renderEditSummary() {
+    var sprints = draft.filter(function (x) { return x[0] === 'sprint'; }).length;
+    var t = totalOf(draft);
+    var bad = draft.some(function (x) { return x[1] < 1; });
+    $('e-summary').innerHTML = draft.length + '개 구간 · 스프린트 ' + sprints + '회 · 총 <b>' + mmss(t) + '</b>' +
+      (bad ? ' · 0초인 구간이 있습니다' : '') + (t > MAX_TOTAL ? ' · 최대 120분까지 가능합니다' : '');
+  }
+  $('add').addEventListener('click', function () {
+    var last = draft[draft.length - 1];
+    var kind = last && last[0] === 'sprint' ? 'recovery' : 'sprint';
+    draft.push([kind, 60]);
+    renderEditor();
+  });
+
+  // ---------- 기본값 ----------
+  $('reset').addEventListener('click', function () { $('reset-confirm').hidden = false; });
+  $('reset-no').addEventListener('click', function () { $('reset-confirm').hidden = true; });
+  $('reset-yes').addEventListener('click', function () {
+    $('reset-confirm').hidden = true;
+    draft = clone(DEFAULT);
+    [['q-warm', 5], ['q-cool', 5], ['q-sprint', 60], ['q-rec', 60], ['q-total', 30]].forEach(function (x) { $(x[0]).value = x[1]; });
+    renderQuick();
+    renderEditor();
+    activate(DEFAULT, null);
+    saveProgram(null);
+    say($('b-status'), '기본값(원본 영상 구성)으로 되돌렸습니다.', 'ok');
+  });
+
+  // ---------- 타이머 영상 만들기 (기기 안에서 바로 인코딩) ----------
+  var blobUrl = null;
+  function activate(p, url) {
+    active = clone(p);
+    if (blobUrl && blobUrl !== url) URL.revokeObjectURL(blobUrl);
+    blobUrl = url;
+    v.src = url || 'interval-ride-pip.mp4';
+    v.load();
+    renderPhases();
+  }
+
+  function frameState(p, st, total, t) {
+    if (t < LEAD) {
+      var first = p[0];
+      return { col: '#5f8dff', frac: t / LEAD, time: String(Math.ceil(LEAD - t)), label: 'READY',
+        sub: '1/' + p.length + ' · NEXT ' + KINDS[first[0]].label + ' ' + mmss(first[1]), flash: null };
+    }
+    if (t >= LEAD + total) {
+      return { col: '#4fe3a1', frac: 1, time: pad(total), label: 'FINISH', sub: mmss(total) + ' COMPLETE', flash: null };
+    }
+    var e = t - LEAD, i = 0;
+    for (var j = 0; j < st.length; j++) if (st[j] <= e) i = j;
+    var k = p[i], into = e - st[i], rem = k[1] - into, nx = p[i + 1];
+    var flash = null;
+    if (into < 2) flash = KINDS[k[0]].color;
+    else if (rem <= 3 && nx && Math.floor(rem * 2) % 2 === 1) flash = KINDS[nx[0]].color;
+    return {
+      col: KINDS[k[0]].color, frac: into / k[1], time: pad(rem), label: KINDS[k[0]].label, flash: flash,
+      sub: (i + 1) + '/' + p.length + ' · ' + (nx ? 'NEXT ' + KINDS[nx[0]].label + ' ' + mmss(nx[1]) : 'LAST INTERVAL')
+    };
+  }
+  function pad(s) {
+    s = Math.max(0, Math.ceil(s - 1e-9));
+    return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  }
+  function mix(hex, a) {
+    var n = parseInt(hex.slice(1), 16), bg = [11, 13, 20];
+    var c = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    return 'rgb(' + c.map(function (x, i) { return Math.round(bg[i] * (1 - a) + x * a); }).join(',') + ')';
+  }
+  var SANS = '-apple-system, "SF Pro Display", "Helvetica Neue", Arial, sans-serif';
+  function draw(ctx, s) {
+    var W = 720, H = 240, cx = 120, cy = 120;
+    ctx.fillStyle = s.flash ? mix(s.flash, 0.3) : '#0b0d14';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#141824';
+    ctx.beginPath(); ctx.arc(cx, cy, 104, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 13; ctx.lineCap = 'butt';
+    ctx.strokeStyle = '#2e3342';
+    ctx.beginPath(); ctx.arc(cx, cy, 90, 0, Math.PI * 2); ctx.stroke();
+    if (s.frac > 0) {
+      ctx.strokeStyle = s.col;
+      ctx.beginPath(); ctx.arc(cx, cy, 90, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, s.frac)); ctx.stroke();
+    }
+    ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '700 46px ' + SANS;
+    ctx.fillText(s.time, cx, cy + 2);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#cdd2de'; ctx.font = '600 25px ' + SANS;
+    ctx.fillText(s.sub, 252, 82, W - 270);
+    ctx.fillStyle = s.col; ctx.font = '800 74px ' + SANS;
+    ctx.fillText(s.label, 252, 170, W - 270);
+  }
+
+  var muxerReady = null;
+  function loadMuxer() {
+    if (window.Mp4Muxer) return Promise.resolve();
+    if (muxerReady) return muxerReady;
+    muxerReady = new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js';
+      s.onload = function () { resolve(); };
+      s.onerror = function () { muxerReady = null; reject(new Error('muxer')); };
+      document.head.appendChild(s);
+    });
+    return muxerReady;
+  }
+
+  function encode(p, onProgress) {
+    var W = 720, H = 240;
+    var config = { codec: 'avc1.42001f', width: W, height: H, bitrate: 250000, framerate: FPS };
+    if (typeof VideoEncoder === 'undefined') return Promise.reject(new Error('unsupported'));
+    return VideoEncoder.isConfigSupported(config).then(function (sup) {
+      if (!sup || !sup.supported) throw new Error('unsupported');
+      return loadMuxer();
+    }).then(function () {
+      var muxer = new Mp4Muxer.Muxer({
+        target: new Mp4Muxer.ArrayBufferTarget(),
+        video: { codec: 'avc', width: W, height: H, frameRate: FPS },
+        fastStart: 'in-memory'
+      });
+      var failed = null;
+      var enc = new VideoEncoder({
+        output: function (chunk, meta) { muxer.addVideoChunk(chunk, meta); },
+        error: function (e) { failed = e; }
+      });
+      enc.configure(config);
+      var canvas = document.createElement('canvas');
+      canvas.width = W; canvas.height = H;
+      var ctx = canvas.getContext('2d');
+      var st = startsOf(p), total = totalOf(p);
+      var n = (LEAD + total + TAIL) * FPS, i = 0, step = 1e6 / FPS;
+      return new Promise(function (resolve, reject) {
+        function chunk() {
+          if (failed) { reject(failed); return; }
+          var until = Math.min(n, i + 40);
+          for (; i < until; i++) {
+            draw(ctx, frameState(p, st, total, i / FPS));
+            var f = new VideoFrame(canvas, { timestamp: Math.round(i * step), duration: Math.round(step) });
+            enc.encode(f, { keyFrame: i % (FPS * 10) === 0 });
+            f.close();
+          }
+          onProgress(i / n);
+          if (i < n) { setTimeout(chunk, enc.encodeQueueSize > 20 ? 30 : 0); return; }
+          enc.flush().then(function () {
+            enc.close();
+            muxer.finalize();
+            resolve(new Blob([muxer.target.buffer], { type: 'video/mp4' }));
+          }, reject);
+        }
+        chunk();
+      });
+    });
+  }
+
+  var building = false;
+  $('build').addEventListener('click', function () {
+    if (building) return;
+    var bs = $('b-status');
+    if (!valid(draft) || draft.some(function (x) { return x[1] < 1; })) {
+      say(bs, '구간 길이는 1초 이상, 전체는 120분 이하로 맞춰 주세요.', 'err');
+      return;
+    }
+    var p = clone(draft);
+    if (isDefault(p)) {
+      saveProgram(null);
+      activate(DEFAULT, null);
+      say(bs, '기본 구성을 사용합니다. 위로 올라가 타이머 띄우기를 누르세요.', 'ok');
+      return;
+    }
+    building = true;
+    $('build').disabled = go.disabled = true;
+    var prog = $('prog');
+    prog.hidden = false; prog.value = 0;
+    say(bs, '타이머를 만드는 중입니다. 잠시만 기다려 주세요.');
+    encode(p, function (r) { prog.value = r; }).then(function (blob) {
+      activate(p, URL.createObjectURL(blob));
+      saveProgram(p);
+      say(bs, '완성했습니다 (총 ' + mmss(totalOf(p)) + '). 위로 올라가 타이머 띄우기를 누르세요.', 'ok');
+    }, function (err) {
+      say(bs, err && err.message === 'unsupported'
+        ? '이 기기의 브라우저는 타이머 영상 만들기를 지원하지 않습니다. iOS 16.4 이상 Safari에서 열어 주세요.'
+        : err && err.message === 'muxer'
+          ? '필요한 구성 요소를 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 다시 눌러 주세요.'
+          : '타이머를 만들지 못했습니다. 다시 시도해 주세요.', 'err');
+    }).then(function () {
+      building = false;
+      $('build').disabled = go.disabled = false;
+      prog.hidden = true;
+      afterBuild();
+    });
+  });
+
+  // ---------- 설정 저장 ----------
+  // 브라우저 저장소는 앱을 닫으면 지워질 수 있어서, 계정별 비공개 저장소(db)에도 함께 저장하고 열 때 그쪽을 우선함
+  var remoteRef = null;
+  var remoteReady = (window.claude && typeof window.claude.use === 'function')
+    ? Promise.all([window.claude.use('db'), window.claude.use('user')]).then(function (r) {
+        var db = r[0], user = r[1];
+        if (!db || !user) return null;
+        return user.id().then(function (id) {
+          remoteRef = id ? db.doc('data/users/' + id + '/program') : null;
+          return remoteRef;
+        });
+      }).catch(function () { return null; })
+    : Promise.resolve(null);
+
+  function saveProgram(p) {
+    try {
+      if (p) localStorage.setItem(STORE, JSON.stringify(p));
+      else localStorage.removeItem(STORE);
+    } catch (e) { /* 무시 */ }
+    remoteReady.then(function (ref) {
+      if (ref) return ref.set({ program: p ? JSON.stringify(p) : '', savedAt: Date.now() });
+    }).catch(function () { /* 브라우저 저장소에는 남아 있음 */ });
+  }
+
+  function loadRemote() {
+    return remoteReady.then(function (ref) {
+      if (!ref) return undefined;
+      return ref.get().then(function (snap) {
+        if (!snap.exists) return undefined;
+        var raw = (snap.data() || {}).program;
+        if (!raw) return null; // 기본값으로 저장된 상태
+        var p = JSON.parse(raw);
+        return valid(p) ? p : undefined;
+      });
+    }).catch(function () { return undefined; });
+  }
+
+  // 저장된 사용자 구성은 페이지를 열 때마다 타이머 영상을 다시 만듦
+  var pending = null;
+  function buildSaved(p) {
+    if (building) { pending = p; return; }
+    draft = clone(p);
+    renderEditor();
+    say(statusEl, '저장된 사용자 구성(' + mmss(totalOf(p)) + ')으로 타이머를 준비하는 중입니다.');
+    v.removeAttribute('src');
+    booting = true;
+    $('build').click();
+  }
+  var booting = false;
+  function afterBuild() {
+    if (booting) {
+      booting = false;
+      if (blobUrl) say(statusEl, '사용자 구성(' + mmss(totalOf(active)) + ')이 준비되었습니다.', 'ok');
+      else { activate(DEFAULT, null); say(statusEl, '사용자 구성을 만들지 못해 기본 구성을 불러왔습니다. 아래 저장하고 타이머 만들기를 다시 눌러 주세요.', 'err'); }
+    }
+    if (pending) { var p = pending; pending = null; buildSaved(p); }
+  }
+
+  // ---------- 시작 ----------
+  renderQuick();
+  renderEditor();
+  renderPhases();
+  var localProgram = isDefault(active) ? null : clone(active);
+  if (localProgram) buildSaved(localProgram);
+  loadRemote().then(function (p) {
+    if (p === undefined) {
+      // 계정 저장소에 아직 없으면 이 기기의 설정을 올려 둠
+      if (localProgram) saveProgram(localProgram);
+      return;
+    }
+    if (JSON.stringify(p) === JSON.stringify(localProgram)) return;
+    try {
+      if (p) localStorage.setItem(STORE, JSON.stringify(p));
+      else localStorage.removeItem(STORE);
+    } catch (e) { /* 무시 */ }
+    if (p) buildSaved(p);
+    else if (localProgram) {
+      // 다른 곳에서 기본값으로 되돌린 경우
+      pending = null;
+      draft = clone(DEFAULT);
+      renderEditor();
+      if (!building) activate(DEFAULT, null);
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
