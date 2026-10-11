@@ -106,7 +106,7 @@
       <li>홈 화면으로 나가 YouTube 앱에서 원하는 영상을 봅니다. 타이머는 위에 그대로 떠 있습니다.</li>
       <li>작은 창을 한 번 누르면 일시정지·재생 버튼이 나옵니다. 화면 옆으로 밀면 잠시 숨겨 둘 수 있습니다.</li>
     </ol>
-    <p class="note">구간이 바뀌기 3초 전부터 1초마다 짧은 '삑' 소리와 함께 화면이 깜빡이고, 바뀌는 순간 긴 '삐-' 소리가 납니다. SPRINT가 시작될 때는 두 음으로 더 높게 울립니다. 소리가 YouTube 재생을 멈추게 하면 소리를 끄고 다시 띄워 주세요.</p>
+    <p class="note">구간이 바뀌기 3초 전부터 1초마다 짧은 '삑' 소리와 함께 화면이 깜빡이고, 바뀌는 순간 긴 '삐-' 소리가 납니다. SPRINT가 시작될 때는 두 음으로 더 높게 울립니다. 타이머 소리는 YouTube 소리와 섞여서 나도록 설정되어 있으며, 아이폰이 무음 모드이면 들리지 않습니다. 그래도 YouTube가 멈추면 소리를 끄고 다시 띄워 주세요.</p>
   </section>
 
   <section>
@@ -143,6 +143,7 @@
   snd.addEventListener('click', function () {
     soundOn = !soundOn;
     v.muted = !soundOn;
+    setMixing();
     try { localStorage.setItem('intervalRide.sound', soundOn ? 'on' : 'off'); } catch (e) { /* 무시 */ }
     renderSound();
   });
@@ -190,7 +191,16 @@
       (document.pictureInPictureEnabled && typeof v.requestPictureInPicture === 'function');
   }
 
+  // Safari 16.4+의 Audio Session API: 'ambient'로 두면 타이머 소리가 다른 앱 소리를 끊지 않고 섞여서 재생됨
+  function setMixing() {
+    try {
+      if (navigator.audioSession) navigator.audioSession.type = soundOn ? 'ambient' : 'auto';
+    } catch (e) { /* 지원하지 않으면 기본 동작 */ }
+  }
+  setMixing();
+
   go.addEventListener('click', function () {
+    setMixing();
     v.muted = !soundOn;
     var playing = v.play();
     if (playing && playing.catch) playing.catch(function () {});
