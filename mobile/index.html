@@ -301,10 +301,22 @@
         return;
       }
     } catch (e) { /* 아래 안내 */ }
+    // Safari에서 페이지가 claude.ai 안에 들어가 있으면 작은 창을 바로 열 수 없음 → 전체화면 플레이어로 열고 그 안의 PiP 버튼을 쓰게 함
+    if (openFullscreen()) {
+      say(statusEl, '전체화면 플레이어가 열렸습니다. 왼쪽 위의 작은 창(PiP) 버튼을 누르면 타이머가 작은 창으로 떠 있습니다.');
+      return;
+    }
     pipFail();
   });
+  function openFullscreen() {
+    try {
+      if (typeof v.webkitEnterFullscreen === 'function') { v.webkitEnterFullscreen(); return true; }
+      if (typeof v.requestFullscreen === 'function') { v.requestFullscreen().catch(function () {}); return true; }
+    } catch (e) { /* 아래 안내 */ }
+    return false;
+  }
   function pipFail() {
-    say(statusEl, '이 화면에서는 작은 창을 열 수 없습니다. 영상 아래 컨트롤의 작은 창(PiP) 아이콘을 눌러 보세요.', 'err');
+    say(statusEl, '이 화면에서는 작은 창을 바로 열 수 없습니다. 영상 왼쪽 위의 전체화면 버튼을 누른 뒤, 전체화면 플레이어의 작은 창(PiP) 버튼을 눌러 주세요.', 'err');
   }
   v.addEventListener('enterpictureinpicture', function () { say(statusEl, PIP_OK); });
   v.addEventListener('error', function () {
